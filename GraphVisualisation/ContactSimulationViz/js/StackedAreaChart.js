@@ -6,11 +6,11 @@ function createDistributionChart(distributionDiv) {
     const width = 250;
     const height = 150;
 
-
-    const currentChartData = getStackedAreaChartData(); //simMetaData; //getChartData();
+    const currentChartData = simMetaData; //getChartData();
 
     createStackedAreaChart(chartDiv, width, height, currentChartData);
 }
+
 
 function getStackedAreaChartData() {
     console.log("Add dead to distributionchartorder")
@@ -18,74 +18,27 @@ function getStackedAreaChartData() {
     //time, [compartments]
     const returnData = [];
 
-    for (let compartmentIndex = 0; compartmentIndex < compartmentOrder.length; compartmentIndex++) {
-        const compartment = compartmentOrder[compartmentIndex];
-        let compartmentData;
+    let policyData;
 
-        simMetaData.forEach(function(d) {
-            if (d.compartment == compartment) {
-                compartmentData = d;
-            }
-        });
-        let nodePolicies = compartmentData.nodesOverTimePerPolicy;
-
-        let policyData;
-
-
-        for (const [key, value] of Object.entries(nodePolicies)) {
-            if (key == (currentRightPolicy + "A" + currentRightAppPercentage)) {
-                policyData = value
-            }
+    simMetaData.forEach(function(d) {
+        if (d.policyString == currentRightPolicy) {
+            policyData = d;
         }
+    });
 
 
-        const maxTime = d3.max(Object.keys(policyData))
+
+    policyData.forEach(function(compartmentData) {
+        const compartment = compartmentData.compartment;
+        const compartmentIndex = compartmentOrder.findIndex(compartment);
+
+        const maxTime = d3.max(compartmentData, d => d.time)
         for (let time = 0; time < maxTime; time += distributionTimeStep) {
-            let key = "" + time;
-            if (!key.includes(".")) {
-                key += ".0"; //keys in policy data are of format "0.0";
-            }
-
-            let value = policyData[key];
-            if (value == undefined) {
-                value = 0;
-            }
-            if (returnData[time] == undefined) {
-                returnData[time] = [];
-            }
-            returnData[time][compartment] = value;
-            returnData[time]["time"] = time;
+            const value = compartmentData.nodesOverTimePerCompartment[time];
+            returnData[time][compartmentIndex] = value;
         }
-    }
-    return returnData;
+    });
 }
-// function getStackedAreaChartData() {
-//     console.log("Add dead to distributionchartorder")
-//     const compartmentOrder = distributionChartColorSchemeOrder;
-//     //time, [compartments]
-//     const returnData = [];
-
-//     let policyData;
-
-//     simMetaData.forEach(function(d) {
-//         if (d.policyString == currentRightPolicy) {
-//             policyData = d;
-//         }
-//     });
-
-
-
-//     policyData.forEach(function(compartmentData) {
-//         const compartment = compartmentData.compartment;
-//         const compartmentIndex = compartmentOrder.findIndex(compartment);
-
-//         const maxTime = d3.max(compartmentData, d => d.time)
-//         for (let time = 0; time < maxTime; time += distributionTimeStep) {
-//             const value = compartmentData.nodesOverTimePerCompartment[time];
-//             returnData[time][compartmentIndex] = value;
-//         }
-//     });
-// }
 
 
 function createStackedAreaChart(chartDiv, usableWidth, usableHeight, data) {
@@ -107,6 +60,7 @@ function createStackedAreaChart(chartDiv, usableWidth, usableHeight, data) {
 
 
     //TODO: Ensure that the max is done correctly
+
     const stackedData = d3.stack()
         .keys(keys)
         (data)
@@ -129,15 +83,9 @@ function createStackedAreaChart(chartDiv, usableWidth, usableHeight, data) {
     const areaChart = svg.append("g");
 
     const area = d3.area()
-        .x(function(d) {
-            return x(d.data.time);
-        })
-        .y0(function(d) {
-            return y(d[0]);
-        })
-        .y1(function(d) {
-            return y(d[1]);
-        })
+        .x(function(d) { return x(d.data.time); })
+        .y0(function(d) { return y(d[0]); })
+        .y1(function(d) { return y(d[1]); })
 
     //add the area
     areaChart

@@ -1,9 +1,7 @@
 function createSidePanel() {
-
-
-    createSelectors()
-    createColorLegends();
+    createSelectors();
     createDistributionChartPanel();
+    createColorLegends();
 }
 
 
@@ -123,7 +121,18 @@ function createPolicySelectors(selectorDiv) {
         changePending();
     }
 
-    createLeftRightComboBoxes(selectorDiv, colorOptions, "leftPolicySelector", "rightPolicySelector", currentLeftPolicy, currentRightPolicy, leftChangeFunction, rightChangeFunction);
+
+    const policySplitCheckBoxFunction = function() {
+        splitPolicy = this.checked;
+        changePending();
+    };
+
+    const comboBoxDiv = selectorDiv.append("div")
+        .attr("class", "comboBoxesDiv")
+
+    createComboBox(comboBoxDiv, "leftPolicySelector", colorOptions, currentLeftPolicy, leftChangeFunction);
+    createCheckBox(comboBoxDiv, "policySplitCheckbox", false, policySplitCheckBoxFunction, "Detailed")
+    createComboBox(comboBoxDiv, "rightPolicySelector", colorOptions, currentRightPolicy, rightChangeFunction);
 }
 
 
@@ -221,7 +230,7 @@ function createRecalculateButton(selectorDiv) {
 
 function createColorLegends() {
     const colorLegendDiv = d3.select("#sidePanel")
-        .insert("div") //insert colorLegend
+        .append("div")
         .attr("id", "colorLegendDiv")
         .attr("class", "colorLegend SidePanelPanelDiv")
 
@@ -281,7 +290,18 @@ function createStateColorLegend(colorLegendDiv, isLeft) {
 
     for (let i = startI; i < names.length; i++) {
         const color = colors[i];
-        const name = names[i];
+        let name = names[i];
+        if (!splitPolicy) //If we aren't looking into the detailed split policy we merge them together
+        {
+            if (name == "Infection route prevented earlier") {
+                //skip the detailed view
+                continue;
+            }
+            if (name == "Contact avoided due to isolation") {
+                //rename as it now represents all states
+                name = "Infection route prevented";
+            }
+        }
         createStateColorLegendItem(color, name, isLeft, halfColorDiv);
     }
 
@@ -311,15 +331,72 @@ function createStateColorLegendItem(color, name, isLeft, divToAddTo) {
 
 function createDistributionChartPanel() {
     const distributionDiv = d3.select("#sidePanel").append("div")
+        .attr("id", "distributionChartPanel")
         .attr("class", "distributionChartPanel SidePanelPanelDiv");
 
 
-    createDistributionChart(distributionDiv)
+    distributionDiv.append("p").attr("class", "title text").text("Distribution of properties")
 
-    createDistributionLegend(distributionDiv)
+    createDistributionChartSelectors(distributionDiv);
 
+    // createDistributionChart(distributionDiv);
+    // createDistributionLegend(distributionDiv);
+
+    createComponentBarChart(distributionDiv);
 }
 
+function createDistributionChartSelectors(divToAddTo) {
+
+    const comboOptions = [
+        { "NAME": "All" },
+    ]
+
+    const maxDepth = getMaxDepth();
+
+    for (let i = 0; i < maxDepth; i++) {
+        comboOptions.push({ "NAME": "Level " + i });
+    }
+
+    const selectLeftLevelFunction = function() {
+        currentLeftDistributionSelection = [];
+        for (let option of this.selectedOptions) {
+            if (option.value == "All") {
+                currentLeftDistributionSelection.push("All")
+            } else {
+                //take only the number. Represent as int for ease of manipulation later
+                currentLeftDistributionSelection.push(parseInt(option.value.split(" ")[1]))
+            }
+        }
+        updateGlobalChart();
+    };
+
+    const selectRightLevelFunction = function() {
+        currentRightDistributionSelection = [];
+        for (let option of this.selectedOptions) {
+            if (option.value == "All") {
+                currentRightDistributionSelection.push("All")
+            } else {
+                //take only the number. Represent as int for ease of manipulation later
+                currentRightDistributionSelection.push(parseInt(option.value.split(" ")[1]))
+            }
+        }
+        updateGlobalChart();
+    };
+
+
+    const normalizeCheckBoxFunction = function() {
+        normalizeComponentChart = this.checked;
+        updateGlobalChart();
+    };
+    const comboBoxDiv = divToAddTo.append("div").attr("class", "comboBoxesDiv")
+
+    createComboBox(comboBoxDiv, "levelComboBox", comboOptions, sortBy, selectLeftLevelFunction, false);
+
+    createCheckBox(comboBoxDiv, "normalizeCheckbox", false, normalizeCheckBoxFunction, "Normalized")
+
+    createComboBox(comboBoxDiv, "levelComboBox", comboOptions, sortBy, selectRightLevelFunction, false);
+
+}
 
 
 
@@ -361,12 +438,16 @@ function createLeftRightComboBoxes(divToAppendTo, colorOptions, leftId, rightId,
     createComboBox(comboBoxDiv, rightId, colorOptions, rightInitColor, rightChangeFunction);
 }
 
-function createComboBox(divToAppendTo, id, valueList, initVal, changeFunction) {
+function createComboBox(divToAppendTo, id, valueList, initVal, changeFunction, multiple) {
 
     //attach the combobox
     const dropDown = divToAppendTo.append("select")
         .attr("class", "sidePanelComboBox")
         .attr("id", id);
+
+    if (multiple) {
+        dropDown.attr("multiple", "multiple")
+    }
 
     const options = dropDown.selectAll("option")
         .data(valueList)
@@ -388,14 +469,19 @@ function createComboBox(divToAppendTo, id, valueList, initVal, changeFunction) {
 
 }
 
-function createCheckBox(divToAppendTo, id, initVal, changeFunction) {
+function createCheckBox(divToAppendTo, id, initVal, changeFunction, labelName) {
 
-    const checkboxDiv = divToAppendTo
-        .insert("div") //insert combodiv before svg
-        .attr("class", "checkdiv")
+    if (labelName != undefined) {
+        const label = divToAppendTo.append("label").text(labelName);
+        divToAppendTo = label;
+    }
+
+    // const checkboxDiv = divToAppendTo
+    //     .insert("div") //insert a div for the checkbox
+    //     .attr("class", "checkdiv")
 
     //attach the checkbox itself
-    const checkbox = checkboxDiv.append("input")
+    const checkbox = divToAppendTo.append("input")
         .attr("class", "sidePanelCheckBox")
         .attr("id", id)
         .attr("type", "checkbox")

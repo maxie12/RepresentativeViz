@@ -16,12 +16,14 @@ function updateAll() {
     if (recalculate) { //if we need to reinitialize the grid
         d3.select("#treeGrid").selectAll("*").remove();
         generateTreeGrid();
-        //update the position without animating as we are redrawing the tree
+		//update the position without animating as we are redrawing the tree
         updatePositions(false);
-    } else {
-        //only moving and recoloring. Update via position
+    } else { 
+	//only moving and recoloring. Update via position
         updatePositions(true);
     }
+
+    updateGlobalChart();
     changeNoLongerPending();
 }
 
@@ -34,7 +36,15 @@ function updateColors() {
 function updatePositions(animate = true) {
     removeAllPopups(); //remove all popups as we are changing the layout and possibly hiding trees/nodes
     let idsToHide = getIdsToHide(currentEditDistance);
-    updateTreesAnimated(idsToHide, animate);
+    updateTreesAnimated(idsToHide,animate);
+}
+
+function updateGlobalChart() {
+    //TODO: Not optimized at all, but works
+    const distributionDiv = d3.select("#sidePanel").select("#distributionChartPanel");
+    distributionDiv.select(".barChartsContainer").remove()
+
+    createComponentBarChart(distributionDiv);
 }
 
 
@@ -87,7 +97,7 @@ function updateScentWidget(distance) {
  * @param {*} idsToHide 
  * @param {if false, no animation will be used} animate 
  */
-function updateTreesAnimated(idsToHide, animate = true) {
+function updateTreesAnimated(idsToHide, animate=true) {
     const updatedPlacement = recalculatePlacement(idsToHide);
     const newWidths = updatedPlacement[0];
     const newHeights = updatedPlacement[1];
@@ -98,7 +108,7 @@ function updateTreesAnimated(idsToHide, animate = true) {
         transitionTime = 0;
     }
 
-    animateChanges(newWidths, newHeights, offSets, transitionTime)
+    animateChanges(newWidths, newHeights, offSets,transitionTime)
 }
 
 function recalculatePlacement(idsToHide) {
@@ -146,7 +156,7 @@ function recalculatePlacement(idsToHide) {
 }
 
 
-function animateChanges(widthArray, heightArray, offsetArray, transitiontime) {
+function animateChanges(widthArray, heightArray, offsetArray,transitionTime) {
 
     const widthMap = new Map();
     const heightMap = new Map();
@@ -169,7 +179,7 @@ function animateChanges(widthArray, heightArray, offsetArray, transitiontime) {
     d3.select("#treeGrid")
         .interrupt()
         .transition()
-        .duration(transitiontime)
+        .duration(transitionTime)
         .selectAll("svg")
         .attr("width", function() { //update the width. Can increase or decrease.
             const treeId = parseInt(d3.select(this).attr('id').substring(3))

@@ -1,15 +1,10 @@
-//Note: This code is rather ugly as it grew organically from something much smaller. A refactored and slightly more optimized
-//version is available  when using real data instead of simulated data under the name TTPRepresentativeViz on github, 
-//but it does not have full backward compatibility. In particular it assumes some additional data is present, 
-//and policies are not explicitely supported. While the code below can be used as it, in case one wants to further develop
-//the code to support additional features my recommendation would be the merge back the updated code base first to assist in developement.
+console.log("ensure all data is used")
 
-
-const repTreesDataInputLocation = "data/SimulatedData/RepTreesRTDistancePartial.json";
-const allTreesDataInputLocation = "data/SimulatedData/AllTrees.json";
-const metaDataInputLocation = "data/SimulatedData/NodesAndMeta.json";
-const simMetaDataInputLocation = "data/SimulatedData/SimMeta.json";
-// const originalExposedDataInputLocation = "data/SimulatedData/Backup/OriginalExposed.csv"
+const repTreesDataInputLocation = "data/RepTreesRTDistanceFull.json";
+const allTreesDataInputLocation = "data/AllTrees.json";
+const metaDataInputLocation = "data/NodesAndMeta.json";
+const simMetaDataInputLocation = "data/SimMeta.csv";
+// const originalExposedDataInputLocation = "data/OriginalExposed.csv"
 
 //Visual variables
 //Variables for the tree visualization
@@ -45,7 +40,7 @@ const hiddenTreesScalingFactor = 0.001; //how much the trees that are represente
 
 
 const initEditDistanceSliderVal = 15; //start the slider at 0
-const maxEditDistanceSliderVal = 100;
+
 
 const popupWidth = 500; //width of the popup when clicking a node to see which trees it represents.
 
@@ -58,6 +53,7 @@ var repNodeById = new Map(); //holds all node data represented by the specified 
 var allTreeById = new Map(); //holds the alltree data by id of the root
 var metaDataFromNodeById = new Map(); //holds the meta data for each node by id of the node.
 
+
 var currentEditDistance = initEditDistanceSliderVal; //Current edit distance
 
 
@@ -65,8 +61,14 @@ var currentLeftColor = "None"; //What we are currently coloring the nodes by for
 var currentRightColor = "None"; //What we are currently coloring the nodes by for the left sides of the glyphs
 var currentLeftPolicy = "1a"; //what the current policy is for the left sides of the glyphs
 var currentRightPolicy = "1a"; //what the current policy is for the left sides of the glyphs
+var splitPolicy = false; //Whether to split to policy into infection route prevent and contact avoided.
+
 var currentLeftAppPercentage = "100";
 var currentRightAppPercentage = "100";
+
+var currentLeftDistributionSelection = "All"; //which levels of the distribution we are currently showing
+var currentRightDistributionSelection = "All"; //which levels of the distribution we are currently showing
+var normalizeComponentChart = false; //whether we normalize the bar chart against the total amount of nodes or not.
 
 var sortEnabled = false;
 var sortBy = "Tree size";
@@ -76,31 +78,30 @@ var recalculate = false; //Holds whether we need to recalculate the tree grid. C
 
 const maxParts = 10; //How many different parts we can have at maximum in the glyph.
 
-var repTreesData, allTreesData, metaData, simMetaData, originalExposedData;
+var repTreesData, allTreesData, metaData, originalExposedData;
 var d3;
 
 
 
 
 //Load in all the javascript files
-requirejs(["js/d3/d3.js", "js/ColorSchemes.js", "js/LineChart.js", "js/StackedAreaChart.js", "js/dataQueries.js", "js/stateCounters.js", "js/nodeViz.js", "js/sidePanel.js", "js/treeLayout.js", "js/representativeGraph.js", "js/popup.js", "js/updateFunctions.js", "js/offsetCalculator.js"], function(d3Var) {
+requirejs(["js/d3/d3.js", "js/ColorSchemes.js", "js/BarChart.js", "js/LineChart.js", "js/StackedAreaChart.js", "js/dataQueries.js", "js/stateCounters.js", "js/nodeViz.js", "js/sidePanel.js", "js/treeLayout.js", "js/representativeGraph.js", "js/popup.js", "js/updateFunctions.js", "js/offsetCalculator.js"], function(d3Var) {
     //load in all the data
     d3 = d3Var;
     d3.json(repTreesDataInputLocation).then(function(repTreesDataInput) {
         d3.json(allTreesDataInputLocation).then(function(allTreesDataInput) {
             d3.json(metaDataInputLocation).then(function(metaDataInput) {
-                d3.json(simMetaDataInputLocation).then(function(simMetaDataInput) {
-                    // d3.csv(originalExposedDataInputLocation).then(function(originalExposedDataInput) {
-                    repTreesData = repTreesDataInput;
-                    allTreesData = allTreesDataInput;
-                    metaData = metaDataInput;
-                    simMetaData = simMetaDataInput;
-                    // originalExposedData = originalExposedDataInput;
-                    setVizSizes(nodeBaseSize);
-                    mainRepresentativeGraph();
-                    updateAll(); //update to use slider values
-                    // });
-                });
+                // d3.csv(simMetaDataInputLocation).then(function(simMetaDataInput) {
+                // d3.csv(originalExposedDataInputLocation).then(function(originalExposedDataInput) {
+                repTreesData = repTreesDataInput;
+                allTreesData = allTreesDataInput;
+                metaData = metaDataInput;
+                // simMetaData = simMetaDataInput;
+                // originalExposedData = originalExposedDataInput;
+                setVizSizes(nodeBaseSize);
+                mainRepresentativeGraph();
+                updateAll(); //update to use slider values
+                // });
             });
         });
     });
@@ -108,10 +109,11 @@ requirejs(["js/d3/d3.js", "js/ColorSchemes.js", "js/LineChart.js", "js/StackedAr
 
 
 function mainRepresentativeGraph() {
+    preprocessData();
+
 
     createSidePanel()
 
-    preprocessData();
 
     generateTreeGrid();
 
