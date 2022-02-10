@@ -21,7 +21,6 @@
 *.rar
 
 # Output stream of cplex
-*Data*.json
 *OutputStream.txt
 
 
@@ -39,9 +38,6 @@ test/
 *.vscode/launch.json
 
 
-#Data directory
-ContactSimulationViz/data/
-Data/
 
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
